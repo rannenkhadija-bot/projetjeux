@@ -1,64 +1,37 @@
-#include "fonction.h"
+// fichier.c
+#include "fichier.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <math.h>
 
-// Fonction pour dessiner un cercle (implémentation manuelle)
-void dessinerCercle(SDL_Renderer *renderer, int cx, int cy, int rayon, SDL_Color couleur) {
-    SDL_SetRenderDrawColor(renderer, couleur.r, couleur.g, couleur.b, couleur.a);
-    
-    for (int x = -rayon; x <= rayon; x++) {
-        int y = (int)sqrt(rayon * rayon - x * x);
-        SDL_RenderDrawLine(renderer, cx + x, cy - y, cx + x, cy + y);
-    }
-}
-
-// Fonction pour dessiner un arc de cercle
-void dessinerArc(SDL_Renderer *renderer, int cx, int cy, int rayon, int angleDebut, int angleFin, SDL_Color couleur) {
-    SDL_SetRenderDrawColor(renderer, couleur.r, couleur.g, couleur.b, couleur.a);
-    
-    for (int angle = angleDebut; angle <= angleFin; angle += 5) {
-        float rad = angle * M_PI / 180.0f;
-        int x = cx + (int)(cos(rad) * rayon);
-        int y = cy + (int)(sin(rad) * rayon);
-        SDL_RenderDrawPoint(renderer, x, y);
-    }
-}
-
 void initInterface(SDL_Renderer *renderer, Interface *ui) {
-    // Chargement des polices
     ui->font = TTF_OpenFont("assets/Orbitron.ttf", 20);
     ui->fontTitre = TTF_OpenFont("assets/Orbitron.ttf", 32);
     ui->fontQuestion = TTF_OpenFont("assets/Orbitron.ttf", 24);
     
-    // Polices de secours
     if (!ui->font) ui->font = TTF_OpenFont("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 20);
     if (!ui->fontTitre) ui->fontTitre = TTF_OpenFont("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 32);
     if (!ui->fontQuestion) ui->fontQuestion = TTF_OpenFont("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 24);
     
-    // Couleurs sci-fi
-    ui->couleurTexte = (SDL_Color){0, 255, 255, 255};      // Cyan
-    ui->couleurErreur = (SDL_Color){255, 0, 0, 255};       // Rouge
-    ui->couleurSucces = (SDL_Color){0, 255, 0, 255};       // Vert
-    ui->couleurBouton = (SDL_Color){0, 100, 150, 200};     // Bleu cyan
-    ui->couleurBoutonHover = (SDL_Color){0, 150, 200, 255}; // Cyan clair
+    ui->couleurTexte = (SDL_Color){0, 255, 255, 255};
+    ui->couleurErreur = (SDL_Color){255, 0, 0, 255};
+    ui->couleurSucces = (SDL_Color){0, 255, 0, 255};
+    ui->couleurBouton = (SDL_Color){0, 100, 150, 200};
+    ui->couleurBoutonHover = (SDL_Color){0, 150, 200, 255};
     
     ui->animation.actif = false;
     
-    // Création du fond dégradé sci-fi
     ui->backgroundTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, LARGEUR_ECRAN, HAUTEUR_ECRAN);
     SDL_SetRenderTarget(renderer, ui->backgroundTexture);
     
-    // Dégradé du noir vers bleu foncé
     for (int i = 0; i < HAUTEUR_ECRAN; i++) {
         int color = 20 + (i * 80 / HAUTEUR_ECRAN);
         SDL_SetRenderDrawColor(renderer, 0, 0, color, 255);
         SDL_RenderDrawLine(renderer, 0, i, LARGEUR_ECRAN, i);
     }
     
-    // Ajout d'étoiles
     srand(time(NULL));
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     for (int i = 0; i < 200; i++) {
@@ -69,21 +42,49 @@ void initInterface(SDL_Renderer *renderer, Interface *ui) {
     
     SDL_SetRenderTarget(renderer, NULL);
     
-    // Chargement du coeur
     ui->heartTexture = NULL;
     SDL_Surface *heartSurf = IMG_Load("assets/heart.png");
     if (heartSurf) {
         ui->heartTexture = SDL_CreateTextureFromSurface(renderer, heartSurf);
         SDL_FreeSurface(heartSurf);
     }
+    
+    ui->scoreTexture = NULL;
+    SDL_Surface *scoreSurf = IMG_Load("assets/score.png");
+    if (scoreSurf) {
+        ui->scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurf);
+        SDL_FreeSurface(scoreSurf);
+    }
+    
+    ui->defaultBg = NULL;
+    SDL_Surface *bgSurf = IMG_Load("assets/background_1.png");
+    if (bgSurf) {
+        ui->defaultBg = SDL_CreateTextureFromSurface(renderer, bgSurf);
+        SDL_FreeSurface(bgSurf);
+    }
 }
 
-void cleanupInterface(SDL_Renderer *renderer, Interface *ui) {
+void cleanupInterface(Interface *ui) {
     if (ui->font) TTF_CloseFont(ui->font);
     if (ui->fontTitre) TTF_CloseFont(ui->fontTitre);
     if (ui->fontQuestion) TTF_CloseFont(ui->fontQuestion);
     if (ui->backgroundTexture) SDL_DestroyTexture(ui->backgroundTexture);
     if (ui->heartTexture) SDL_DestroyTexture(ui->heartTexture);
+    if (ui->scoreTexture) SDL_DestroyTexture(ui->scoreTexture);
+    if (ui->defaultBg) SDL_DestroyTexture(ui->defaultBg);
+}
+
+void afficherBackground(SDL_Renderer *renderer, Interface *ui, SDL_Texture* customBg) {
+    if (customBg) {
+        SDL_RenderCopy(renderer, customBg, NULL, NULL);
+    } else if (ui->defaultBg) {
+        SDL_RenderCopy(renderer, ui->defaultBg, NULL, NULL);
+    } else if (ui->backgroundTexture) {
+        SDL_RenderCopy(renderer, ui->backgroundTexture, NULL, NULL);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+    }
 }
 
 void afficherTexte(SDL_Renderer *renderer, TTF_Font *font, const char *texte, int x, int y, SDL_Color couleur) {
@@ -100,65 +101,28 @@ void afficherTexte(SDL_Renderer *renderer, TTF_Font *font, const char *texte, in
     SDL_DestroyTexture(texture);
 }
 
-void afficherBackground(SDL_Renderer *renderer, Interface *ui) {
-    if (ui->backgroundTexture) {
-        SDL_RenderCopy(renderer, ui->backgroundTexture, NULL, NULL);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-    }
-}
-
-void dessinerBordureSciFi(SDL_Renderer *renderer, SDL_Rect rect, int epaisseur, SDL_Color couleur) {
-    // Bordure externe
-    SDL_SetRenderDrawColor(renderer, couleur.r, couleur.g, couleur.b, couleur.a);
-    for (int i = 0; i < epaisseur; i++) {
-        SDL_Rect border = {rect.x - i, rect.y - i, rect.w + 2*i, rect.h + 2*i};
-        SDL_RenderDrawRect(renderer, &border);
-    }
-    
-    // Coins décoratifs
-    int tailleCoin = 15;
-    SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
-    
-    // Coin haut-gauche
-    SDL_RenderDrawLine(renderer, rect.x - epaisseur, rect.y - epaisseur, 
-                       rect.x - epaisseur + tailleCoin, rect.y - epaisseur);
-    SDL_RenderDrawLine(renderer, rect.x - epaisseur, rect.y - epaisseur,
-                       rect.x - epaisseur, rect.y - epaisseur + tailleCoin);
-    
-    // Coin haut-droit
-    SDL_RenderDrawLine(renderer, rect.x + rect.w + epaisseur, rect.y - epaisseur,
-                       rect.x + rect.w + epaisseur - tailleCoin, rect.y - epaisseur);
-    SDL_RenderDrawLine(renderer, rect.x + rect.w + epaisseur, rect.y - epaisseur,
-                       rect.x + rect.w + epaisseur, rect.y - epaisseur + tailleCoin);
-    
-    // Coin bas-gauche
-    SDL_RenderDrawLine(renderer, rect.x - epaisseur, rect.y + rect.h + epaisseur,
-                       rect.x - epaisseur + tailleCoin, rect.y + rect.h + epaisseur);
-    SDL_RenderDrawLine(renderer, rect.x - epaisseur, rect.y + rect.h + epaisseur,
-                       rect.x - epaisseur, rect.y + rect.h + epaisseur - tailleCoin);
-    
-    // Coin bas-droit
-    SDL_RenderDrawLine(renderer, rect.x + rect.w + epaisseur, rect.y + rect.h + epaisseur,
-                       rect.x + rect.w + epaisseur - tailleCoin, rect.y + rect.h + epaisseur);
-    SDL_RenderDrawLine(renderer, rect.x + rect.w + epaisseur, rect.y + rect.h + epaisseur,
-                       rect.x + rect.w + epaisseur, rect.y + rect.h + epaisseur - tailleCoin);
-}
-
 void afficherScoreVies(SDL_Renderer *renderer, Interface *ui, int score, int vies, int level) {
     char buffer[100];
     
-    // Score avec icône style sci-fi
-    sprintf(buffer, "[ SCORE: %d ]", score);
-    afficherTexte(renderer, ui->font, buffer, 50, 30, ui->couleurTexte);
-    
-    // Niveau
     sprintf(buffer, "[ NIVEAU: %d ]", level);
     afficherTexte(renderer, ui->font, buffer, 300, 30, ui->couleurTexte);
     
-    // Vies avec coeurs
+    afficherScore(renderer, ui, score);
     afficherVies(renderer, ui, vies);
+}
+
+void afficherScore(SDL_Renderer *renderer, Interface *ui, int score) {
+    if (ui->scoreTexture) {
+        SDL_Rect scoreRect = {50, 25, 32, 32};
+        SDL_RenderCopy(renderer, ui->scoreTexture, NULL, &scoreRect);
+        char buffer[32];
+        sprintf(buffer, "%d", score);
+        afficherTexte(renderer, ui->font, buffer, 90, 30, ui->couleurTexte);
+    } else {
+        char buffer[100];
+        sprintf(buffer, "[ SCORE: %d ]", score);
+        afficherTexte(renderer, ui->font, buffer, 50, 30, ui->couleurTexte);
+    }
 }
 
 void afficherVies(SDL_Renderer *renderer, Interface *ui, int vies) {
@@ -168,7 +132,6 @@ void afficherVies(SDL_Renderer *renderer, Interface *ui, int vies) {
             SDL_RenderCopy(renderer, ui->heartTexture, NULL, &heartRect);
         }
     } else {
-        // Fallback si pas d'image
         char buffer[50] = "VIES: ";
         for (int i = 0; i < vies; i++) {
             strcat(buffer, "♥ ");
@@ -178,31 +141,25 @@ void afficherVies(SDL_Renderer *renderer, Interface *ui, int vies) {
 }
 
 void afficherQuestion(SDL_Renderer *renderer, Interface *ui, Question q) {
-    // Cadre de la question avec style sci-fi
     SDL_Rect questionRect = {150, 120, LARGEUR_ECRAN - 300, 120};
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180);
     SDL_RenderFillRect(renderer, &questionRect);
     dessinerBordureSciFi(renderer, questionRect, 2, (SDL_Color){0, 255, 255, 255});
     
-    // Texte de la question
     afficherTexte(renderer, ui->fontQuestion, q.question, 
                   questionRect.x + 20, questionRect.y + 40, ui->couleurTexte);
 }
 
 void afficherBoutonsReponse(SDL_Renderer *renderer, Interface *ui, Bouton boutons[], int nbBoutons) {
     for (int i = 0; i < nbBoutons; i++) {
-        // Couleur du bouton selon hover
         SDL_Color couleurBouton = boutons[i].hover ? ui->couleurBoutonHover : ui->couleurBouton;
         
-        // Fond du bouton avec transparence
         SDL_SetRenderDrawColor(renderer, couleurBouton.r, couleurBouton.g, couleurBouton.b, couleurBouton.a);
         SDL_RenderFillRect(renderer, &boutons[i].rect);
         
-        // Bordure sci-fi
         dessinerBordureSciFi(renderer, boutons[i].rect, 1, (SDL_Color){0, 255, 255, 255});
         
-        // Texte du bouton
         int texteX = boutons[i].rect.x + 20;
         int texteY = boutons[i].rect.y + (boutons[i].rect.h / 2) - 10;
         afficherTexte(renderer, ui->font, boutons[i].texte, texteX, texteY, ui->couleurTexte);
@@ -216,25 +173,21 @@ void initialiserBoutons(Bouton boutons[], Question q) {
     int debutX = (LARGEUR_ECRAN - (2 * largeurBouton + espacement)) / 2;
     int debutY = 320;
     
-    // Bouton 1 (haut-gauche)
     boutons[0].rect = (SDL_Rect){debutX, debutY, largeurBouton, hauteurBouton};
     strcpy(boutons[0].texte, q.choix[0]);
     boutons[0].hover = false;
     boutons[0].id = 0;
     
-    // Bouton 2 (haut-droit)
     boutons[1].rect = (SDL_Rect){debutX + largeurBouton + espacement, debutY, largeurBouton, hauteurBouton};
     strcpy(boutons[1].texte, q.choix[1]);
     boutons[1].hover = false;
     boutons[1].id = 1;
     
-    // Bouton 3 (bas-gauche)
     boutons[2].rect = (SDL_Rect){debutX, debutY + hauteurBouton + espacement, largeurBouton, hauteurBouton};
     strcpy(boutons[2].texte, q.choix[2]);
     boutons[2].hover = false;
     boutons[2].id = 2;
     
-    // Bouton 4 (bas-droit)
     boutons[3].rect = (SDL_Rect){debutX + largeurBouton + espacement, debutY + hauteurBouton + espacement, largeurBouton, hauteurBouton};
     strcpy(boutons[3].texte, q.choix[3]);
     boutons[3].hover = false;
@@ -252,17 +205,14 @@ int gererClicBoutons(Bouton boutons[], int nbBoutons, int x, int y) {
 }
 
 void afficherChronometreBarre(SDL_Renderer *renderer, int x, int y, int largeur, int hauteur, float pourcentage) {
-    // Fond de la barre
     SDL_Rect barreFond = {x, y, largeur, hauteur};
     SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
     SDL_RenderFillRect(renderer, &barreFond);
     
-    // Barre de progression
     int largeurProgression = (int)(largeur * pourcentage);
     if (largeurProgression > 0) {
         SDL_Rect barreProgression = {x, y, largeurProgression, hauteur};
         
-        // Couleur selon le temps restant
         if (pourcentage > 0.6) {
             SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
         } else if (pourcentage > 0.3) {
@@ -273,14 +223,7 @@ void afficherChronometreBarre(SDL_Renderer *renderer, int x, int y, int largeur,
         SDL_RenderFillRect(renderer, &barreProgression);
     }
     
-    // Bordure sci-fi
     dessinerBordureSciFi(renderer, barreFond, 1, (SDL_Color){0, 255, 255, 255});
-    
-    // Texte du temps
-    char buffer[20];
-    sprintf(buffer, "%.0f sec", pourcentage * TEMPS_PAR_QUESTION);
-    afficherTexte(renderer, TTF_OpenFont("assets/Orbitron.ttf", 16), buffer, 
-                  x + largeur + 20, y + 5, (SDL_Color){0, 255, 255, 255});
 }
 
 void afficherMessageRotozoom(SDL_Renderer *renderer, Interface *ui, const char *message, bool succes) {
@@ -326,10 +269,9 @@ void afficherMessageRotozoom(SDL_Renderer *renderer, Interface *ui, const char *
     SDL_DestroyTexture(texture);
 }
 
-void chargerQuestions(const char *filename, Question *questions, int *nbQuestions) {
+void chargerQuestions(const char *filename, Question *questions, int *nbQuestions, SDL_Renderer *renderer) {
     FILE *file = fopen(filename, "r");
     if (!file) {
-        printf("Erreur: Impossible d'ouvrir %s\n", filename);
         *nbQuestions = 0;
         return;
     }
@@ -359,12 +301,21 @@ void chargerQuestions(const char *filename, Question *questions, int *nbQuestion
         }
         
         questions[index].dejaVu = 0;
+        questions[index].backgroundTex = NULL;
+        
+        char bgPath[256];
+        sprintf(bgPath, "assets/ques_%d.png", index + 1);
+        SDL_Surface* bgSurf = IMG_Load(bgPath);
+        if (bgSurf) {
+            questions[index].backgroundTex = SDL_CreateTextureFromSurface(renderer, bgSurf);
+            SDL_FreeSurface(bgSurf);
+        }
+        
         index++;
     }
     
     *nbQuestions = index;
     fclose(file);
-    printf("Chargé %d questions\n", *nbQuestions);
 }
 
 int choisirQuestion(Question *questions, int nbQuestions) {
@@ -377,7 +328,15 @@ int choisirQuestion(Question *questions, int nbQuestions) {
         }
     }
     
-    if (nbDisponibles == 0) return -1;
+    if (nbDisponibles == 0) {
+        for (int i = 0; i < nbQuestions; i++) {
+            questions[i].dejaVu = 0;
+        }
+        for (int i = 0; i < nbQuestions; i++) {
+            questionsDisponibles[i] = i;
+        }
+        nbDisponibles = nbQuestions;
+    }
     
     int choix = rand() % nbDisponibles;
     return questionsDisponibles[choix];
@@ -405,69 +364,34 @@ void miseAJourTemps(float *tempsRestant, float deltaTime, int *vies) {
     }
 }
 
-void sousMenuEnigme(SDL_Renderer *renderer, Interface *ui, Question *questions, int nbQuestions, int *score, int *vies, int level) {
-    bool enCours = true;
-    SDL_Event event;
-    int choix = -1;
-    
-    while (enCours) {
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                enCours = false;
-                exit(0);
-            }
-            else if (event.type == SDL_KEYDOWN) {
-                if (event.key.keysym.sym == SDLK_1) choix = 0;
-                else if (event.key.keysym.sym == SDLK_2) choix = 1;
-                else if (event.key.keysym.sym == SDLK_ESCAPE) enCours = false;
-            }
-        }
-        
-        SDL_RenderClear(renderer);
-        afficherBackground(renderer, ui);
-        
-        SDL_Rect menuRect = {200, 150, LARGEUR_ECRAN - 400, HAUTEUR_ECRAN - 300};
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 200);
-        SDL_RenderFillRect(renderer, &menuRect);
-        dessinerBordureSciFi(renderer, menuRect, 2, (SDL_Color){0, 255, 255, 255});
-        
-        afficherTexte(renderer, ui->fontTitre, "=== MODE ENIGME ===", 350, 180, ui->couleurTexte);
-        afficherTexte(renderer, ui->font, "Pour l'equipe de 6 joueurs:", 250, 280, ui->couleurTexte);
-        afficherTexte(renderer, ui->font, "- Mode QCM classique", 270, 330, ui->couleurTexte);
-        afficherTexte(renderer, ui->font, "Pour l'equipe de 5 joueurs:", 250, 400, ui->couleurTexte);
-        afficherTexte(renderer, ui->font, "- Mode Puzzle (questions bonus)", 270, 450, ui->couleurTexte);
-        afficherTexte(renderer, ui->font, "Appuyez sur 1 ou 2 pour choisir", 280, 550, ui->couleurTexte);
-        afficherTexte(renderer, ui->font, "ESC pour retourner au jeu", 300, 600, ui->couleurTexte);
-        
-        if (choix == 0) {
-            afficherTexte(renderer, ui->font, "Mode QCM selectionne!", 350, 650, ui->couleurSucces);
-            SDL_RenderPresent(renderer);
-            SDL_Delay(1000);
-            enCours = false;
-        }
-        else if (choix == 1) {
-            afficherTexte(renderer, ui->font, "Mode Puzzle - Bonus de 25 points!", 320, 650, ui->couleurSucces);
-            *score += 25;
-            SDL_RenderPresent(renderer);
-            SDL_Delay(1000);
-            enCours = false;
-        }
-        
-        SDL_RenderPresent(renderer);
-        SDL_Delay(16);
+void dessinerBordureSciFi(SDL_Renderer *renderer, SDL_Rect rect, int epaisseur, SDL_Color couleur) {
+    SDL_SetRenderDrawColor(renderer, couleur.r, couleur.g, couleur.b, couleur.a);
+    for (int i = 0; i < epaisseur; i++) {
+        SDL_Rect border = {rect.x - i, rect.y - i, rect.w + 2*i, rect.h + 2*i};
+        SDL_RenderDrawRect(renderer, &border);
     }
+    
+    int tailleCoin = 15;
+    SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
+    
+    SDL_RenderDrawLine(renderer, rect.x - epaisseur, rect.y - epaisseur, 
+                       rect.x - epaisseur + tailleCoin, rect.y - epaisseur);
+    SDL_RenderDrawLine(renderer, rect.x - epaisseur, rect.y - epaisseur,
+                       rect.x - epaisseur, rect.y - epaisseur + tailleCoin);
+    SDL_RenderDrawLine(renderer, rect.x + rect.w + epaisseur, rect.y - epaisseur,
+                       rect.x + rect.w + epaisseur - tailleCoin, rect.y - epaisseur);
+    SDL_RenderDrawLine(renderer, rect.x + rect.w + epaisseur, rect.y - epaisseur,
+                       rect.x + rect.w + epaisseur, rect.y - epaisseur + tailleCoin);
+    SDL_RenderDrawLine(renderer, rect.x - epaisseur, rect.y + rect.h + epaisseur,
+                       rect.x - epaisseur + tailleCoin, rect.y + rect.h + epaisseur);
+    SDL_RenderDrawLine(renderer, rect.x - epaisseur, rect.y + rect.h + epaisseur,
+                       rect.x - epaisseur, rect.y + rect.h + epaisseur - tailleCoin);
+    SDL_RenderDrawLine(renderer, rect.x + rect.w + epaisseur, rect.y + rect.h + epaisseur,
+                       rect.x + rect.w + epaisseur - tailleCoin, rect.y + rect.h + epaisseur);
+    SDL_RenderDrawLine(renderer, rect.x + rect.w + epaisseur, rect.y + rect.h + epaisseur,
+                       rect.x + rect.w + epaisseur, rect.y + rect.h + epaisseur - tailleCoin);
 }
 
 void afficherMenuPrincipal(SDL_Renderer *renderer, Interface *ui) {
-    afficherBackground(renderer, ui);
-    
-    SDL_Rect titreRect = {200, 200, LARGEUR_ECRAN - 400, 100};
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180);
-    SDL_RenderFillRect(renderer, &titreRect);
-    dessinerBordureSciFi(renderer, titreRect, 2, (SDL_Color){0, 255, 255, 255});
-    
-    afficherTexte(renderer, ui->fontTitre, "THE TOMORROW WAR", 350, 230, ui->couleurTexte);
-    afficherTexte(renderer, ui->font, "Appuyez sur ESPACE pour commencer", 350, 400, ui->couleurTexte);
-    afficherTexte(renderer, ui->font, "Appuyez sur M pour le menu Enigme", 360, 450, ui->couleurTexte);
-    afficherTexte(renderer, ui->font, "Appuyez sur ESC pour quitter", 380, 500, ui->couleurTexte);
+    afficherBackground(renderer, ui, NULL);
 }
