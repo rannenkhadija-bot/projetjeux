@@ -1,45 +1,40 @@
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
-#include <SDL2/SDL_image.h>
-#include <SDL2/SDL_mixer.h>
+// main.c
+#include "fichier.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "fonction.h"
 
-int main(int argc, char *argv[]) {
-    // Initialisation SDL
+int main(void) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
-        printf("Erreur SDL: %s\n", SDL_GetError());
         return 1;
     }
     
     if (TTF_Init() < 0) {
-        printf("Erreur TTF: %s\n", TTF_GetError());
         return 1;
     }
     
     if (IMG_Init(IMG_INIT_PNG) == 0) {
-        printf("Erreur IMG: %s\n", IMG_GetError());
+        return 1;
     }
     
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-        printf("Erreur Mixer: %s\n", Mix_GetError());
+        return 1;
     }
     
-    SDL_Window *window = SDL_CreateWindow("The Tomorrow War - Le Jeu",
+    Mix_Music* music = Mix_LoadMUS("assets/sound_back.mp3");
+    if (music) Mix_PlayMusic(music, -1);
+    
+    SDL_Window *window = SDL_CreateWindow("LOT 5",
                                           SDL_WINDOWPOS_CENTERED,
                                           SDL_WINDOWPOS_CENTERED,
                                           LARGEUR_ECRAN, HAUTEUR_ECRAN,
                                           SDL_WINDOW_SHOWN);
     if (!window) {
-        printf("Erreur fenêtre: %s\n", SDL_GetError());
         return 1;
     }
     
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
-        printf("Erreur renderer: %s\n", SDL_GetError());
         return 1;
     }
     
@@ -48,10 +43,9 @@ int main(int argc, char *argv[]) {
     
     Question questions[MAX_QUESTIONS];
     int nbQuestions = 0;
-    chargerQuestions("questions.txt", questions, &nbQuestions);
+    chargerQuestions("questions.txt", questions, &nbQuestions, renderer);
     
     if (nbQuestions == 0) {
-        printf("Aucune question chargée!\n");
         return 1;
     }
     
@@ -61,8 +55,8 @@ int main(int argc, char *argv[]) {
     int questionsRepondues = 0;
     float tempsRestant = TEMPS_PAR_QUESTION;
     Uint32 dernierTemps = SDL_GetTicks();
-    bool jeuActif = false;
-    bool menuActif = true;
+    int jeuActif = 0;
+    int menuActif = 1;
     int questionActuelle = -1;
     
     Bouton boutons[4];
@@ -71,12 +65,12 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
     
     SDL_Event event;
-    bool running = true;
+    int running = 1;
     
     while (running) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
-                running = false;
+                running = 0;
             }
             else if (event.type == SDL_MOUSEMOTION) {
                 sourisX = event.motion.x;
@@ -93,20 +87,20 @@ int main(int argc, char *argv[]) {
                 int reponse = gererClicBoutons(boutons, 4, event.button.x, event.button.y);
                 if (reponse >= 0) {
                     int bonneReponse = questions[questionActuelle].bonneReponse;
-                    bool succes = (reponse == bonneReponse);
+                    int succes = (reponse == bonneReponse);
                     
                     if (succes) {
                         verifierReponse(bonneReponse, reponse, &score, &vies, &level, &questionsRepondues);
-                        afficherMessageRotozoom(renderer, &ui, "BONNE REPONSE!", true);
+                        afficherMessageRotozoom(renderer, &ui, "BONNE REPONSE!", 1);
                     } else {
                         vies--;
-                        afficherMessageRotozoom(renderer, &ui, "MAUVAISE REPONSE!", false);
+                        afficherMessageRotozoom(renderer, &ui, "MAUVAISE REPONSE!", 0);
                     }
                     
                     if (vies <= 0) {
-                        jeuActif = false;
-                        menuActif = true;
-                        afficherMessageRotozoom(renderer, &ui, "GAME OVER!", false);
+                        jeuActif = 0;
+                        menuActif = 1;
+                        afficherMessageRotozoom(renderer, &ui, "GAME OVER!", 0);
                         SDL_Delay(2000);
                         score = 0;
                         vies = 3;
@@ -122,9 +116,9 @@ int main(int argc, char *argv[]) {
                             tempsRestant = TEMPS_PAR_QUESTION;
                             initialiserBoutons(boutons, questions[questionActuelle]);
                         } else {
-                            jeuActif = false;
-                            menuActif = true;
-                            afficherMessageRotozoom(renderer, &ui, "VICTOIRE!", true);
+                            jeuActif = 0;
+                            menuActif = 1;
+                            afficherMessageRotozoom(renderer, &ui, "VICTOIRE!", 1);
                             SDL_Delay(2000);
                             for (int i = 0; i < nbQuestions; i++) {
                                 questions[i].dejaVu = 0;
@@ -140,8 +134,8 @@ int main(int argc, char *argv[]) {
             else if (event.type == SDL_KEYDOWN) {
                 if (menuActif) {
                     if (event.key.keysym.sym == SDLK_SPACE) {
-                        jeuActif = true;
-                        menuActif = false;
+                        jeuActif = 1;
+                        menuActif = 0;
                         questionActuelle = choisirQuestion(questions, nbQuestions);
                         if (questionActuelle >= 0) {
                             questions[questionActuelle].dejaVu = 1;
@@ -149,19 +143,13 @@ int main(int argc, char *argv[]) {
                             initialiserBoutons(boutons, questions[questionActuelle]);
                         }
                     }
-                    else if (event.key.keysym.sym == SDLK_m) {
-                        sousMenuEnigme(renderer, &ui, questions, nbQuestions, &score, &vies, level);
-                    }
                     else if (event.key.keysym.sym == SDLK_ESCAPE) {
-                        running = false;
+                        running = 0;
                     }
                 }
                 else if (jeuActif && event.key.keysym.sym == SDLK_ESCAPE) {
-                    jeuActif = false;
-                    menuActif = true;
-                }
-                else if (jeuActif && event.key.keysym.sym == SDLK_m) {
-                    sousMenuEnigme(renderer, &ui, questions, nbQuestions, &score, &vies, level);
+                    jeuActif = 0;
+                    menuActif = 1;
                 }
             }
         }
@@ -174,12 +162,12 @@ int main(int argc, char *argv[]) {
             miseAJourTemps(&tempsRestant, deltaTime, &vies);
             
             if (tempsRestant <= 0) {
-                afficherMessageRotozoom(renderer, &ui, "TEMPS ECOULE!", false);
+                afficherMessageRotozoom(renderer, &ui, "TEMPS ECOULE!", 0);
                 vies--;
                 
                 if (vies <= 0) {
-                    jeuActif = false;
-                    menuActif = true;
+                    jeuActif = 0;
+                    menuActif = 1;
                     SDL_Delay(2000);
                     score = 0;
                     vies = 3;
@@ -205,7 +193,8 @@ int main(int argc, char *argv[]) {
             afficherMenuPrincipal(renderer, &ui);
         }
         else if (jeuActif && questionActuelle >= 0) {
-            afficherBackground(renderer, &ui);
+            SDL_Texture* bgTex = questions[questionActuelle].backgroundTex;
+            afficherBackground(renderer, &ui, bgTex);
             afficherScoreVies(renderer, &ui, score, vies, level);
             afficherQuestion(renderer, &ui, questions[questionActuelle]);
             afficherBoutonsReponse(renderer, &ui, boutons, 4);
@@ -221,10 +210,11 @@ int main(int argc, char *argv[]) {
         SDL_Delay(16);
     }
     
-    cleanupInterface(renderer, &ui);
+    if (music) Mix_FreeMusic(music);
+    Mix_CloseAudio();
+    cleanupInterface(&ui);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    Mix_CloseAudio();
     IMG_Quit();
     TTF_Quit();
     SDL_Quit();
